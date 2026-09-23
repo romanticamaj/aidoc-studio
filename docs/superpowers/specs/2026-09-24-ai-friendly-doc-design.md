@@ -417,10 +417,10 @@ server（或 CLI batch）啟動時：
 
 P1 結束即可讓 skill（第 7 節）先以 CLI 上線；P2 之前 skill 對超過 40 頁的 PDF 會整份一次轉，只是沒有續轉。
 
-## 13. 待決事項（需站長拍板，本次 review 未擅改）
+## 13. 決議事項（2026-09-24，spec review 後由主控 agent 以保守預設定案，可隨時調整）
 
-1. **MinerU tier**：`standard`（含 1.2B VLM，走 llama.cpp GGUF，品質較好、較慢、顯存多）或 `basic`（純小模型，等同舊 pipeline，快而省）。建議預設 `standard`、OOM 降 `basic`（已寫在 8.2），但 llama.cpp 在 Windows + RTX 50 上的 GPU 加速尚未實測。
-2. **`--lang` 對 MinerU 無效**：MinerU 4.x 沒有語言參數。若「純英文模型」對使用者重要，只有 Docling 路徑做得到；要不要在 `--lang en` 時把純英文掃描檔改路由到 Docling？
-3. **音訊**：MarkItDown 轉錄會把音訊送到 Google（需網路）。要保留、預設關閉、還是直接不支援？
-4. **`low` 結果的快取**：再次批次時 `level: "low"` 的檔案要跳過（視為已轉）還是自動重轉？建議跳過，另加 `--retry-low` 旗標。
-5. **Docling OCR 引擎**：EasyOCR（`ch_tra+en`，spec 現行）或 RapidOCR（`chinese_cht`，ONNX、無 torch 相依）。建議先用 EasyOCR，fixture 實測後再定。
+1. **MinerU tier**：預設 `basic`（純小模型，Windows + RTX 50 上風險最低）；`standard` 為設定選項，P1 的 fixture 實測若 llama.cpp GPU 在 sm_120 可用、且品質明顯較好，再改預設。OOM 降級規則仍為 `standard → basic`。
+2. **`--lang en`**：純英文的掃描 PDF／圖片在 `lang=en` 時改路由為 **Docling（EasyOCR `en`）→ MinerU**；`lang=cht` 路由不變。
+3. **音訊**：預設**關閉**（會把音訊送到 Google）。需以設定 `enable_audio=true` 或 CLI `--allow-online-audio` 明確開啟；關閉時音訊檔判定 `failed(input: audio_disabled)`。
+4. **`low` 結果的快取**：再次批次時視為快取命中（`skipped`），另提供 `--retry-low`（Web：「重轉低品質」按鈕）。
+5. **Docling OCR 引擎**：先用 EasyOCR（`ch_tra` + `en`）；P1 以 fixture 比較 RapidOCR，若 RapidOCR 品質相當或更好則改用（少一個 torch 相依）。

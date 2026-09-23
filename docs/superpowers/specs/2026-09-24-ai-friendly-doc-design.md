@@ -25,7 +25,7 @@ Office（docx/pptx/xlsx）、電子 PDF、掃描 PDF／圖片（需 OCR）、含
 
 ### OCR 語言
 
-繁體中文 + 英文（含中英混排）為預設；`--lang en` 可切純英文模型（只影響 Docling 路徑；MinerU 4.x 沒有語言參數，見第 4 節與第 13 節）。
+繁體中文 + 英文（含中英混排）為預設；`--lang en` 可切純英文模型（只影響 Docling 路徑且只在 Docling 使用 EasyOCR 時有獨立英文模型；預設的 RapidOCR 對所有語言載入同一個多語 PP-OCRv6 模型；MinerU 4.x 沒有語言參數，見第 4 節與第 13 節）。
 
 CLI／API 的 `lang` 值只有兩個：`cht`（預設，繁中＋英文）與 `en`。各 engine 的對應寫在第 4 節「OCR 語言設定」，其他地方不出現 engine 專屬的語言代碼。
 
@@ -421,6 +421,7 @@ P1 結束即可讓 skill（第 7 節）先以 CLI 上線；P2 之前 skill 對�
 
 1. **MinerU tier**：預設 `basic`（純小模型，Windows + RTX 50 上風險最低）；`standard` 為設定選項，P1 的 fixture 實測若 llama.cpp GPU 在 sm_120 可用、且品質明顯較好，再改預設。OOM 降級規則仍為 `standard → basic`。
 2. **`--lang en`**：純英文的掃描 PDF／圖片在 `lang=en` 時改路由為 **Docling（EasyOCR `en`）→ MinerU**；`lang=cht` 路由不變。
+   - **P2 修訂（2026-09-24，P1 驗證回饋）**：P1 spike B 後 Docling 預設 OCR 改為 RapidOCR，而 RapidOCR（docling 2.130 / rapidocr 3.9.2）對 `en` 與 `chinese_cht` 載入同一個多語 `PP-OCRv6_rec_small`，沒有英文專屬模型可選（英文 v4/v5 模型只能手動指定路徑，實測在 fixture 上沒有可量測的提升）。因此上述改路由**只在 `docling_ocr = "easyocr"` 時生效**；預設 RapidOCR 時 `lang=en` 的掃描檔與 `cht` 同路由（MinerU → Docling）。
 3. **音訊**：預設**關閉**（會把音訊送到 Google）。需以設定 `enable_audio=true` 或 CLI `--allow-online-audio` 明確開啟；關閉時音訊檔判定 `failed(input: audio_disabled)`。
 4. **`low` 結果的快取**：再次批次時視為快取命中（`skipped`），另提供 `--retry-low`（Web：「重轉低品質」按鈕）。
 5. **Docling OCR 引擎**：先用 EasyOCR（`ch_tra` + `en`）；P1 以 fixture 比較 RapidOCR，若 RapidOCR 品質相當或更好則改用（少一個 torch 相依）。

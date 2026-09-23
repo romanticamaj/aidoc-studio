@@ -65,3 +65,17 @@ EasyOCR stays installed and downloaded; `docling_ocr = "easyocr"` switches back 
 3. RapidOCR models: `docling-tools models download rapidocr --rapidocr-backend-lang onnxruntime:chinese_cht
    --rapidocr-backend-lang onnxruntime:en` fetches PP-OCRv6 det/rec small + cls; `chinese_cht` resolves to the
    PP-OCRv6 `ch` recogniser (covers 繁中/簡中/English). `aidoc setup docling` now downloads both OCR model sets.
+
+## Addendum (P2, 2026-09-24): `lang=en` with RapidOCR
+
+Verified in the docling env (docling 2.130.0, rapidocr 3.9.2): `RapidOcrOptions(lang=["en"])` and
+`lang=["chinese_cht"]` resolve to the same files — det `PP-OCRv6_det_small.onnx`, cls
+`ch_ppocr_mobile_v2.0_cls_mobile.onnx`, rec `PP-OCRv6_rec_small.onnx` (multilingual, `lang_type=ch`, 18,710-char
+charset). rapidocr's `model_resolver` maps every PP-OCRv6 language to one `multi_PP-OCRv6_rec_*` model, and with
+`artifacts_path` set docling does not pass `Rec.lang_type`. So `--rapidocr-backend-lang onnxruntime:en` downloads
+nothing extra. English-only recognisers exist (`en_PP-OCRv4/v5_rec_mobile`, `latin_PP-OCRv5_rec_mobile`) but are
+reachable only by pinning `rec_model_path` (or `lang=["latin"]`, which also switches the detector to PP-OCRv5).
+Word recall/precision on scanned_en / scanned_mixed / degraded re-renders: v6 multi 1.00/1.00, 1.00/1.00,
+0.958/0.958; en v5 pinned 1.00/1.00, 1.00/0.984, 0.972/0.940; latin v5 0.986/0.947 on the degraded page; en v4
+worse. No measurable gain → spec §13.2 revised: English scans route Docling-first only when `docling_ocr = "easyocr"`
+(EasyOCR has a real English model); with the default RapidOCR, `lang=en` routes like `cht`.

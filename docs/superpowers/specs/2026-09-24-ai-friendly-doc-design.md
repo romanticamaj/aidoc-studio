@@ -336,7 +336,7 @@ server（或 CLI batch）啟動時：
 | 時間點 | 處理 |
 |---|---|
 | 建立工作時 | 立即計算 sha256，記錄大小與 mtime；檔案不存在直接回報錯誤 |
-| 開始轉換前 | 將來源檔複製到 `data/work/<task_id>/`（上傳檔本來就在工作區；來源與 `data/` 在同一 NTFS 磁碟區時可改用硬連結省時省空間）並比對 sha256：不存在 → `failed(input: source_missing)`；內容不同 → `failed(input: source_changed)`，Web 提供「用新版本重轉」 |
+| 開始轉換前 | 將來源檔複製到 `data/work/<task_id>/`（上傳檔本來就在工作區；一律實際複製、不用硬連結——硬連結與原檔共用資料，轉換中原檔被就地改寫會讓後段分段讀到新內容〔P3 修訂〕）並比對 sha256：不存在 → `failed(input: source_missing)`；內容不同 → `failed(input: source_changed)`，Web 提供「用新版本重轉」 |
 | 轉換過程中 | engine 只讀工作區副本，原始檔被移走不受影響 |
 | 瀏覽 Library 時 | 原始檔與工作區副本都不存在時，結果照常顯示，原始檔預覽顯示「原始檔已移除」 |
 | 輸出目錄被刪除 | 列出文件與啟動時以磁碟實際內容為準；資料庫中對不上的紀錄標記 `orphaned`，可一鍵清除 |

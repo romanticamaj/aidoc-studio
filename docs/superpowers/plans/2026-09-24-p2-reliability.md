@@ -53,7 +53,7 @@ Index §0 plus:
 **Interfaces:**
 - Produces: `plan_segments(pages: int | None) -> list[tuple[int | None, int | None]]`; `split_pdf(src: Path, page_start: int, page_end: int, dst: Path) -> Path` (1-based inclusive; uses `insert_pdf(from_page=..., to_page=...)`); `segment_dir(work_dir: Path, idx: int) -> Path` = `work_dir / f"seg_{idx}"`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_segment.py
@@ -75,7 +75,7 @@ def test_segment_dir(tmp_path):
     assert segment_dir(tmp_path, 3) == tmp_path / "seg_3"
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement** (`SEGMENT_PAGES` from models). **Step 4: Run** → pass. **Step 5: Commit** `feat: segment planning and PDF splitting`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement** (`SEGMENT_PAGES` from models). **Step 4: Run** → pass. **Step 5: Commit** `feat: segment planning and PDF splitting`.
 
 ---
 
@@ -88,7 +88,7 @@ def test_segment_dir(tmp_path):
 **Interfaces:**
 - Produces: `base.EngineCancelled(Exception)`; `base.RunnerSession` (concrete): `.pid: int | None`, `.engine_opts: dict`, `.convert(src: Path, workdir: Path, pages: tuple[int,int] | None, on_progress, *, timeout_s: float, segment_idx: int = 0, cancel: threading.Event | None = None) -> RawResult`, `.close()`; `RunnerEngine.open_session(opts: ConvertOptions, probe: ProbeResult, *, engine_opts: dict | None = None, full_page_ocr: bool = False) -> RunnerSession` (starts the runner once; `engine_opts` override lets retry pass downgraded options); `RunnerEngine.oom_downgrade(engine_opts: dict) -> dict | None` (default None; Docling halves `page_batch_size` down to 1; MinerU `standard → basic`); `RunnerEngine.convert` (P1 one-shot) is now implemented as open_session → convert → close. `RunnerHost.run(..., cancel: threading.Event | None = None)` polls `cancel` every 0.25 s; when set → `kill_tree`, raise `EngineCancelled`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_session.py
@@ -134,7 +134,7 @@ def test_oom_downgrade_rules():
     assert MineruEngine().oom_downgrade({"tier": "basic"}) is None
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement** (`RunnerSession.__init__(engine_name, host, engine_opts, kind)`; `convert` writes request with `"pages"` and `"segment_idx"`, calls `host.run(request, workdir, timeout_s, on_progress, cancel=cancel)`, builds `RawResult` as in P1). **Step 4: Run** all unit tests (P1 host tests must still pass). **Step 5: Commit** `feat: persistent runner sessions with cancellation`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement** (`RunnerSession.__init__(engine_name, host, engine_opts, kind)`; `convert` writes request with `"pages"` and `"segment_idx"`, calls `host.run(request, workdir, timeout_s, on_progress, cancel=cancel)`, builds `RawResult` as in P1). **Step 4: Run** all unit tests (P1 host tests must still pass). **Step 5: Commit** `feat: persistent runner sessions with cancellation`.
 
 ---
 
@@ -149,7 +149,7 @@ def test_oom_downgrade_rules():
 
 Merge rule (spec §8.3): merge only if `prev.last_table` and `nxt.first_table` exist, `prev.last_table.touches_edge` and `prev.last_table.page == prev.page_count`, `nxt.first_table.touches_edge` and `nxt.first_table.page == 1`, and `n_cols` equal, and both markdown edges actually are GFM tables with that column count. The second table's header row + separator are dropped when identical to the first's header; otherwise the header row is kept as a data row (separator dropped). The `<!-- page: N -->` marker of `nxt` is preserved *before* the continuation rows? No — a marker inside a GFM table breaks it; place the marker **after** the merged table.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_merge.py
@@ -194,7 +194,7 @@ def test_edge_tables_different_header_keeps_row():
     assert "| 1 | 2 |\n| c | d |\n| 3 | 4 |" in r and r.count("| --- | --- |") == 1
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: segment merge with cross-segment table joining`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: segment merge with cross-segment table joining`.
 
 ---
 
@@ -214,7 +214,7 @@ Flow changes vs P1:
 4. `merge_segments(parts)` → whole-document `assess` → done/low as P1. Sidecar `segments = len(ranges)`.
 5. Cancel: `EngineCancelled` or `cancel.is_set()` between segments → `cancelled`; done segments keep their rows/files.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_pipeline_segments.py
@@ -287,7 +287,7 @@ def test_cancel_keeps_done_segments(env):
 
 (The third test depends on Task 5's transient retry; write it now, expect it to fail until Task 5, and note that in the Task 4 commit message.)
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → tests 1, 2, 4 pass; test 3 fails on retry (expected until Task 5). All P1 pipeline tests still pass. **Step 5: Commit** `feat: segmented conversion with quick checks and resume (retry pending)`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → tests 1, 2, 4 pass; test 3 fails on retry (expected until Task 5). All P1 pipeline tests still pass. **Step 5: Commit** `feat: segmented conversion with quick checks and resume (retry pending)`.
 
 ---
 
@@ -305,7 +305,7 @@ def test_cancel_keeps_done_segments(env):
   - `err.kind == transient` (timeout/crash/kill) → `retry` with `delay_s = backoff[min(used, len-1)]` while `used < max_transient`, else `fallback`.
 - Pipeline: wraps each engine attempt: on `retry` → `store.append_attempt(... error_kind="transient")`, wait `delay_s` via `cancel.wait(delay)` if cancel given else `time.sleep`, re-open session with new `engine_opts`, resume from unfinished segments (done segments kept); on `fallback` → reset segments, next engine; `fail` → `failed(input)`. `tasks.attempt` counts every session opened.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_retry.py
@@ -385,7 +385,7 @@ def test_cancel_during_backoff(env, monkeypatch):
     assert time.time() - t0 < 5
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement** (`RETRY_POLICY = RetryPolicy()` module constant in `pipeline.py`; the OOM attempt's `error_msg` must mention both `oom` and the downgraded option, e.g. `"oom: retrying with {'tier': 'basic'}"`). **Step 4: Run** `tests/unit` → all pass including `test_resume_skips_done_segments` from Task 4. **Step 5: Commit** `feat: failure classification and retry policy`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement** (`RETRY_POLICY = RetryPolicy()` module constant in `pipeline.py`; the OOM attempt's `error_msg` must mention both `oom` and the downgraded option, e.g. `"oom: retrying with {'tier': 'basic'}"`). **Step 4: Run** `tests/unit` → all pass including `test_resume_skips_done_segments` from Task 4. **Step 5: Commit** `feat: failure classification and retry policy`.
 
 ---
 
@@ -398,7 +398,7 @@ def test_cancel_during_backoff(env, monkeypatch):
 **Interfaces:**
 - Produces: `class SourceError(Exception)` with `.code in {"source_missing","source_changed"}`; `stage_source(source_path: Path, expected_sha: str, work_dir: Path) -> Path` (missing → `source_missing`; `file_sha256 != expected` → `source_changed`; hardlink via `os.link` when both on the same drive (`Path(...).drive` equal on Windows, `st_dev` equal on POSIX) and `os.link` does not raise, else `shutil.copy2`; returns `work_dir / f"src{ext}"`; idempotent when already staged with the right sha); `purge_expired_work_copies(store, now: float) -> int` (deletes `work_copy_path` dirs of documents whose `work_copy_expires_at < now`, nulls both columns, returns count). Pipeline: `SourceError` → `failed(input: <code>)`; after success `documents.work_copy_path = work_dir`, `work_copy_expires_at = now + retention_days*86400`; for uploads (P3) the file is already in `work_dir` and `stage_source` just verifies.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_sources.py
@@ -457,7 +457,7 @@ def test_purge_expired(tmp_root):
     assert store.list_documents()[0]["work_copy_path"] is None
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: source staging with sha verification and work-copy retention`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: source staging with sha verification and work-copy retention`.
 
 ---
 
@@ -473,7 +473,7 @@ def test_purge_expired(tmp_root):
 - Requeue: those tasks → `queued`, `pid NULL`; their segments with `status == converting` → `queued`, `output_path NULL`; `done` segments untouched.
 - Clean: for each distinct `Path(tasks.output_dir).parent` (and `config.output_root()`): remove `.tmp/<x>` where `x` is not a non-terminal task id; remove everything under `.trash/`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_recovery.py
@@ -535,7 +535,7 @@ def test_orphaned_documents_marked(tmp_root):
     assert st == {"keep": "ok", "gone": "orphaned"} and len(res["orphaned"]) == 1
 ```
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**; wire `recover_on_startup` into `cli.py` for `batch` and `convert` (log lines to stderr only when something was done). **Step 4: Run** → pass. **Step 5: Commit** `feat: startup recovery of orphans, states and temp dirs`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**; wire `recover_on_startup` into `cli.py` for `batch` and `convert` (log lines to stderr only when something was done). **Step 4: Run** → pass. **Step 5: Commit** `feat: startup recovery of orphans, states and temp dirs`.
 
 ---
 
@@ -548,7 +548,7 @@ def test_orphaned_documents_marked(tmp_root):
 **Interfaces:**
 - Produces: `Store.create_task` now: existing row with status in `queued|probing|converting|checking|failed|cancelled` → reuse (re-parent, set `queued`, keep segments, reset `pid`, keep `tried`/`attempt` history; `failed(input)` rows are reused too — the file may have been restored); `done|low|skipped` → replace as before. `Store.requeue_task(task_id, *, reset_segments: bool, new_sha: str | None = None) -> None` (status `queued`, `error_* NULL`, `pid NULL`; `reset_segments` → `reset_segments()`; `new_sha` updates `sha256/size/mtime` for "convert with new version"). `batch.run_batch` skips tasks whose status is already terminal at loop time only if `skipped`/`done`/`low` (i.e. resumed jobs continue queued ones). CLI `aidoc cancel <job_id>` — P2 implements the in-process no-op message `"no server running; use Ctrl+C"` (P3 replaces with server call).
 
-- [ ] **Step 1: Failing tests** (append)
+- [x] **Step 1: Failing tests** (append)
 
 ```python
 # tests/unit/test_store.py (append)
@@ -593,7 +593,7 @@ def test_batch_resumes_unfinished_segments(tmp_root, fixtures, monkeypatch):
 
 (The `[41, 45]` count is 2 because the cancelled slow call was logged before it was killed, then re-run.)
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: reuse failed/cancelled tasks and resume batches from unfinished segments`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass. **Step 5: Commit** `feat: reuse failed/cancelled tasks and resume batches from unfinished segments`.
 
 ---
 
@@ -605,7 +605,7 @@ def test_batch_resumes_unfinished_segments(tmp_root, fixtures, monkeypatch):
 **Interfaces:**
 - `tests/reliability/conftest.py` provides `batch_proc(root, input_dir, out, scenario) -> subprocess.Popen` launching `[sys.executable, "-m", "aidoc.cli", "batch", ...]` with env `AIDOC_ROOT/AIDOC_DATA/AIDOC_FAKE_ENGINES/AIDOC_FAKE_SCENARIO` and `wait_for(pred, timeout)` polling helper; `db(root) -> Store`.
 
-- [ ] **Step 1: Write the tests**
+- [x] **Step 1: Write the tests**
 
 ```python
 # tests/reliability/test_kill_batch.py
@@ -733,7 +733,7 @@ def test_force_with_long_held_handle_is_transient(tmp_root, fixtures, monkeypatc
 
 `test_source_guard.py`: same as `test_pipeline_source_changed` but through `main(["batch", ...])`, asserting the manifest `error` starts with `input: source_missing` / `input: source_changed`.
 
-- [ ] **Step 2: Run** `uv run pytest tests/reliability -v` → all pass (fix pipeline/recovery bugs they expose; these tests are the spec's §10 reliability list). **Step 3: Commit** `test: reliability suite with fake engine`.
+- [x] **Step 2: Run** `uv run pytest tests/reliability -v` → all pass (fix pipeline/recovery bugs they expose; these tests are the spec's §10 reliability list). **Step 3: Commit** `test: reliability suite with fake engine`.
 
 ---
 
@@ -748,7 +748,7 @@ def test_force_with_long_held_handle_is_transient(tmp_root, fixtures, monkeypatc
 
 Algorithm: tokenise into blocks — page marker lines (update `page`), ATX headings (`#{1,6} `), fenced code (``` … ```), GFM table (consecutive lines starting with `|`), HTML table (`<table` … `</table>`), display math (`$$` … `$$`), paragraphs (blank-line separated). Heading changes the `heading_path` (stack by level; deeper levels appended, same/higher levels pop). Accumulate blocks into the current chunk while `tokens(chunk + block) <= max_tokens` and the heading path is unchanged; otherwise flush. A single block larger than `max_tokens` becomes its own chunk with `oversized=True` (tables/math/code never split; long paragraphs likewise flagged). `page_start/page_end` = min/max page of the blocks (None when the document has no markers). Chunk text = blocks joined by `\n\n`, prefixed by nothing (heading text is in `heading_path`). `id = f"{stem}#{n:04d}"`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # tests/unit/test_chunk.py
@@ -806,7 +806,7 @@ def test_chunk_output_dir(tmp_path):
 
 (`chunk_output_dir` accepts `counter` too, defaulting to `count_tokens`.)
 
-- [ ] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass; then a manual run `uv run aidoc chunk out --max-tokens 800` on the P1 output must print a count and produce valid JSONL (this exercises real tiktoken; requires `aidoc setup` to have cached the BPE or network). **Step 5: Commit** `feat: RAG chunking and aidoc chunk`.
+- [x] **Step 2: Run** → FAIL. **Step 3: Implement**. **Step 4: Run** → pass; then a manual run `uv run aidoc chunk out --max-tokens 800` on the P1 output must print a count and produce valid JSONL (this exercises real tiktoken; requires `aidoc setup` to have cached the BPE or network). **Step 5: Commit** `feat: RAG chunking and aidoc chunk`.
 
 ---
 
@@ -815,7 +815,7 @@ def test_chunk_output_dir(tmp_path):
 **Files:**
 - Create: `skill/SKILL.md`
 
-- [ ] **Step 1: Write the skill**
+- [x] **Step 1: Write the skill**
 
 ```markdown
 ---
@@ -844,7 +844,7 @@ All routing/engine decisions live in the CLI. This skill only calls it and reads
 - Already-converted files (same sha256) return `status: "skipped"` immediately; the `.md` is still valid.
 ```
 
-- [ ] **Step 2: Verify** by reading it once through the checklist: no engine logic, trigger words from spec §7 present, low-quality handling present. **Step 3: Commit** `feat: Claude Code skill for aidoc convert`.
+- [x] **Step 2: Verify** by reading it once through the checklist: no engine logic, trigger words from spec §7 present, low-quality handling present. **Step 3: Commit** `feat: Claude Code skill for aidoc convert`.
 
 ---
 
@@ -854,7 +854,7 @@ All routing/engine decisions live in the CLI. This skill only calls it and reads
 - Create: `tests/integration/test_segments_real.py`
 - Modify: `tests/integration/test_e2e_fixtures.py` (`test_big_pdf_whole_document_p1` now expects `segments == 2`)
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```python
 # tests/integration/test_segments_real.py
@@ -877,16 +877,175 @@ def test_big_pdf_segmented_with_mineru_forced(tmp_root, fixtures):
     assert sc["segments"] == 2 and sc["quality"]["level"] == "ok"
 ```
 
-- [ ] **Step 2: Run** `uv run pytest -m slow tests/integration/test_segments_real.py -v` → pass; observe in the log that only one runner process was started per engine (log the pid once in `pipeline` when a session opens). **Step 3: Commit** `test: real segmented conversion`.
+- [x] **Step 2: Run** `uv run pytest -m slow tests/integration/test_segments_real.py -v` → pass; observe in the log that only one runner process was started per engine (log the pid once in `pipeline` when a session opens). **Step 3: Commit** `test: real segmented conversion`.
 
 ---
 
 ## Phase acceptance (P2)
 
-- [ ] `uv run pytest -m "not slow" -q` → all pass, including `tests/reliability/` (Windows-only tests run on the host).
-- [ ] `uv run pytest -m slow -q` → all pass.
-- [ ] Manual interruption drill: start `uv run aidoc batch tests/fixtures -o out_p2 --engine docling` (real engine), wait until `data/aidoc.db` shows `big.pdf` segment 0 `done`, press Ctrl+C, confirm `tasklist | findstr python` shows the docling runner is gone within a few seconds (or that re-running kills it: the recovery log line `killed orphan runner pid=…` appears), re-run the same command → finishes, and `out_p2/big/big.json` has `"segments": 2`; `tasks.attempt` for `big.pdf` shows the session count.
-- [ ] `uv run aidoc chunk out_p2 --max-tokens 600` → `wrote N chunks to out_p2\chunks.jsonl`; every line has `heading_path`, `page_start`, `page_end`; the ruled table from `text.pdf` appears intact in exactly one chunk.
-- [ ] Delete `out_p2/text/` manually, run `uv run aidoc convert tests/fixtures/text.pdf -o out_p2` → re-converts (no false cache hit), and the previous `documents` row was marked `orphaned` then replaced.
-- [ ] `skill/SKILL.md` exists; simulate the skill by running its command line by hand on `tests/fixtures/sample.docx` and reading the JSON.
-- [ ] Spec §1 success criterion "resume from interruption without half-written output" holds: after the drill above, `out_p2/.tmp/` and `out_p2/.trash/` are empty or absent.
+- [x] `uv run pytest -m "not slow" -q` → all pass, including `tests/reliability/` (Windows-only tests run on the host).
+- [x] `uv run pytest -m slow -q` → all pass.
+- [x] Manual interruption drill: start `uv run aidoc batch tests/fixtures -o out_p2 --engine docling` (real engine), wait until `data/aidoc.db` shows `big.pdf` segment 0 `done`, press Ctrl+C, confirm `tasklist | findstr python` shows the docling runner is gone within a few seconds (or that re-running kills it: the recovery log line `killed orphan runner pid=…` appears), re-run the same command → finishes, and `out_p2/big/big.json` has `"segments": 2`; `tasks.attempt` for `big.pdf` shows the session count.
+- [x] `uv run aidoc chunk out_p2 --max-tokens 600` → `wrote N chunks to out_p2\chunks.jsonl`; every line has `heading_path`, `page_start`, `page_end`; the ruled table from `text.pdf` appears intact in exactly one chunk.
+- [x] Delete `out_p2/text/` manually, run `uv run aidoc convert tests/fixtures/text.pdf -o out_p2` → re-converts (no false cache hit), and the previous `documents` row was marked `orphaned` then replaced.
+- [x] `skill/SKILL.md` exists; simulate the skill by running its command line by hand on `tests/fixtures/sample.docx` and reading the JSON.
+- [x] Spec §1 success criterion "resume from interruption without half-written output" holds: after the drill above, `out_p2/.tmp/` and `out_p2/.trash/` are empty or absent.
+
+---
+
+## Implementation notes / deviations
+
+Recorded while executing P2 on 2026-09-24 (same host as P1), commits `06db0dd..HEAD` on master. The decisions are
+listed below; every item that affects behaviour has a test.
+
+**Where the plan was adapted (spec-faithful, no test weakened)**
+- T2: `FakeEngine.engine_opts` and `oom_downgrade` now delegate to the real engine class and add `fake_engine`.
+  This lets the T5 OOM test see `tier` and `page_batch_size` exactly as production does (index A9: fakes follow the
+  real engines' rules). The `RunnerSession` host runs with cwd `data/work`, since one process serves many segment
+  workdirs and all request paths are absolute.
+- T4 / final review: several watcher threads share one Store, so `Store` now wraps its connection in
+  `_LockedConnection`. Every statement runs and is fully fetched under one RLock. My first ruling
+  (`check_same_thread=False` without a lock) was wrong: concurrent use raised `sqlite3.InterfaceError`, which made a
+  cancel test flaky. P3 can keep or rename the `threadsafe` flag; the lock is always on.
+- T4: two problems in the plan's `watch()` helpers were fixed, with the assertions unchanged:
+  - they read `list_segments(tid)[0]` before any rows existed, so an `IndexError` killed the thread and the test hung;
+  - they could cancel before the slow segment-1 call was logged, a race on the `[41, 45]` count.
+- T4: the per-segment quick check runs only when all three hold:
+  - the document has more than one segment;
+  - a fallback engine is still left;
+  - `has_table_lines` is treated as false for the segment, because it is a whole-document fact and a segment with no
+    table must not fail on it.
+
+  A single-segment document keeps P1's best-of. The last engine always finishes, and the whole-document check then
+  decides the result (`low` rather than `failed`).
+- T4: a PDF with only one segment is not split. It is sent with `pages=None`, which spec §3 defines as the whole
+  document.
+- T4: resume reuses done segments only if the same engine produced them. `edges.json` records the engine (new field
+  `SegmentPart.engine`), and the engine order restarts at that engine. When a low best-of candidate is kept, its
+  assets are copied to `work/<task>/best/` before the segment dirs are discarded.
+  Store methods added (all additive): `delete_segments`, `get_segment`, `update_document`, `tasks_with_pid`,
+  `list_tasks(status_in=)`, `requeue_task`.
+- T6: the source is staged before probe and cache lookup, so `source_missing` and `source_changed` are caught on
+  every run.
+  - The probe reads the work copy.
+  - A cache hit deletes a work dir that no document references.
+  - `documents.work_copy_path` is the work dir (the P3 plan `rmtree`s it).
+  - An already staged copy with the right sha is reused even if the original has since moved.
+  - A read-only source is copied, never hardlinked (see final review I2).
+  - Any other `OSError` becomes `input: source_unreadable`.
+- T7: recovery leaves alone any task whose liveness lock is held by another running CLI (see verifier 4). Spec §8.4
+  assumed a single process; without this, a second CLI would kill the first one's runner.
+  - Output roots are de-duplicated by realpath.
+  - Recovery runs at the start of `aidoc convert` and `aidoc batch`, and writes to stderr only when it acted.
+- T8: when a row is reused, `error_kind` and `error_msg` are cleared. Without a server, `aidoc cancel` prints
+  "no server running; use Ctrl+C …" to stderr and exits 1.
+- T9: `db(root)` is a fixture factory, and `batch_proc` logs to `<root>/batch<n>.out` / `.err`. I added
+  `test_orphan_runner_of_killed_batch_is_killed_by_next_start`: the plan's test kills the whole process tree, so
+  nothing else tested orphan killing end to end.
+- T10: chunking rules:
+  - a page marker ends a paragraph;
+  - a block that spans a marker (HTML table, `$$`) records both pages;
+  - fenced code is kept verbatim;
+  - chunk ids use the output dir name;
+  - `--doc X` replaces only X's lines in `chunks.jsonl`. This replaces my earlier ruling after final review M3.
+- T11: step 4 of SKILL.md names the actual Markdown path, `<output_dir>/<dir name>.md`. P1 names files after the
+  output dir, including `-sha8` collision suffixes.
+- T12: Docling treats the top line of each page ("第 N 頁 / Page N") as page-header furniture and drops it on every
+  page, as it did in P1. The Docling test therefore checks 45 page bodies instead of "第 45 頁"; the MinerU test keeps
+  that check. The log line `runner started pid=` confirms one runner per engine. `test_big_pdf_whole_document_p1`
+  now expects `segments == 2`.
+
+**P1 deferred items fixed (with tests)**
+- `.tmp.pdf`, `.trash.pdf` and hidden stems: a stem never starts with `.` (so `.tmp` becomes `_tmp`) and never
+  equals `.tmp`, `.trash`, `_manifest.jsonl` or `chunks.jsonl`.
+- Reserved names now include `CONIN$`, `CONOUT$`, `COM0-9`, `COM¹²³`, `LPT0-9` and `LPT¹²³`, also when followed by
+  spaces before the dot.
+- Fake `slow_ok` sleeps `delay_s` (index §6). `slow_s` overrides it for `slow_ok` only. There is no hidden extra 5 s.
+- An unknown `AIDOC_ERROR` kind raises `EngineError(engine, "[runner error kind 'x'] …")` instead of `ValueError`.
+
+**P1 verifier findings fixed in P2 (each with a failing test first)**
+1. Unreadable or vanished inputs (`batch.register_source`):
+   - an `OSError` while statting or hashing creates a task `failed(input: source_unreadable | source_missing)`;
+   - that row uses a placeholder key `"!" + 63 hex` built from path, job and code, not a content sha;
+   - the batch continues and exits 2;
+   - if collecting inputs crashes, the tasks already created are marked failed and the job `done` before the error
+     is re-raised;
+   - `aidoc convert` uses the same helper: clean JSON or line output, exit 1.
+2. Long stems: `MAX_STEM = 150`, and `names.output_stem()` truncates and appends `-<sha8>`. Any `OSError` while
+   writing or finalising output removes `out/.tmp/<task>` and ends as `failed(transient: output write failed …)`.
+3. `probe.blank_pages` is now exact: a cheap text/image/drawing check runs on every page. The sampled pages still
+   drive the other metrics.
+4. Concurrent converts of one file: a per-task OS file lock `data/work/.locks/<task_id>.lock` (`aidoc.tasklock`,
+   msvcrt/flock), which the OS releases when the process dies, so no PID is trusted.
+   - `Store.create_task` raises `TaskBusyError` for an active row whose lock is held; the new request ends as
+     `failed(input: already_converting …)`.
+   - `run_task` never runs a task that is locked elsewhere.
+   - Recovery skips live tasks.
+5. `lang=en` with RapidOCR: a check in the docling env showed that `RapidOcrOptions(lang=["en"])` and
+   `["chinese_cht"]` load the same multilingual `PP-OCRv6_rec_small`, plus the same det and cls models. English-only
+   recognisers can only be used by pinning model paths, and they gave no measurable gain.
+   - **Spec §13.2 revised (needs spec-owner sign-off):** English scans go to Docling first only when
+     `docling_ocr = "easyocr"`. With the default RapidOCR, `lang=en` routes like `cht`.
+   - Spec line 28 and a spike B addendum record the evidence.
+   - P1's `test_scanned_en_routes_to_docling_with_lang_en` now runs with a temporary `docling_ocr = "easyocr"`
+     config; the new slow test `tests/integration/test_lang_en_real.py` covers the default.
+6. Garbage ratio counts only:
+   - U+FFFD, private-use code points, C0/C1 controls and unassigned code points;
+   - mojibake runs: at least 4 characters over a Latin-1/cp1252 alphabet, containing a Latin-1 symbol.
+
+   Stars, arrows, bullets, leader dots, circled digits and umlauts are not garbage.
+7. No code change was needed. P3 can reach work-copy retention through `sources.purge_expired_work_copies(store, now)`,
+   which recovery step 5 also calls. Work dirs of failed or forced runs are left for P3 maintenance.
+8. Fixed the vacuous `A and B or C` assertion in `test_fsops`.
+9. A1 tests: the clock starts at `AIDOC_READY` (tested with the fake's `startup_delay_s`), and no READY within the
+   startup cap gives a transient error with the runner killed.
+10. Added a batch test with a per-file I/O error (see 1).
+
+**Final whole-branch review (fresh reviewer): fixed**
+- I1: a CUDA OOM raised inside a live runner used to arrive as `kind=engine`, so the OOM downgrade never ran with the
+  real runners. `_proto.serve` now reports OOM exceptions as `kind=transient`, with the OOM marker kept in the
+  message, and the host sets `EngineError.oom`. The protocol shape is unchanged. New fake behaviour: `oom_raise`.
+- I2: removing a hardlinked work copy chmod-ed away the read-only flag of the user's source, because NTFS attributes
+  are shared between links. Read-only sources are now copied instead of linked, and `_on_rm_error` never chmods a
+  file with more than one link.
+- M3 (re-graded to Important): `aidoc chunk --doc X` used to delete every other document's chunks.
+- M7 (re-graded to Important): a source locked at run time ended as `engine: internal error`; it is now
+  `input: source_unreadable`.
+- M1: the cancel-during-backoff test now proves Review Focus 4's 1 s requirement.
+- Store thread-safety: see the T4 entry above.
+
+**Deferred minors (from the final review)**
+- M2: resume ignores a changed `lang` or other options between runs (only matters with EasyOCR).
+- M4: recovery could kill another process's live runner if a dead task's recorded PID was reused by exactly such a
+  runner.
+- M5: the runner starts a moment before its PID is recorded.
+- M6: a missing env python, or a runner that crashes at startup, ends as an internal error or three transient
+  startups instead of falling back at once.
+- M8: a `fail` retry decision leaves the in-flight segment `converting`.
+- M9: work-copy retention keeps the whole `data/work/<task>`, not only `src.*`.
+- M10: `MAX_STEM = 150` can still exceed MAX_PATH without LongPathsEnabled (setup already warns about this).
+- M11: placeholder failed rows pile up on reruns over an unreadable file.
+- M12: Ctrl+C in `convert` or `batch` prints a traceback; recovery handles the leftover state.
+- M13: a form feed counts as garbage (the effect is negligible).
+
+**Also found**
+- `segment.py` imported `fitz`. Its deprecation warning went to **stdout** and broke `aidoc convert --json`. It now
+  imports `pymupdf as fitz`, like `probe.py`.
+
+**Acceptance evidence (2026-09-24)**
+- `uv run pytest -m "not slow" -q`: 220 passed (211 unit + 9 reliability). `uv run pytest -m slow -q`: 30 passed and
+  1 skipped (the manual-fixtures test, because `tests/fixtures/manual/` is empty).
+- Interruption drill (real Docling, `out_p2`):
+  - Ctrl+Break was sent to the batch's process group once segment 0 of big.pdf was `done`. The runner was gone
+    within 3 s, and the DB showed `converting [(0, done), (1, converting)]`.
+  - The re-run logged `recovery: requeued 1 interrupted task(s)` and finished big.pdf with `segments: 2`, 45 pages
+    and level ok. `tasks.attempt = 2` (two sessions), and `out_p2/.tmp` and `.trash` were absent.
+  - Exit code 2 is expected: bad.exe, corrupt, encrypted and make_fixtures.py fail under `--engine docling`.
+- `aidoc chunk out_p2 --max-tokens 600` printed `wrote 28 chunks to out_p2\chunks.jsonl`. Every row has
+  `heading_path`, `page_start` and `page_end`. The ruled table from text.pdf is intact in exactly one chunk
+  (`text#0001`, pages 2–3).
+- After deleting `out_p2/text/`, `aidoc convert tests/fixtures/text.pdf -o out_p2` printed
+  `recovery: marked 1 document(s) orphaned` and re-converted (`done docling 1.0`); the documents row went back to
+  `ok`.
+- Running the skill's command on `sample.docx` returned JSON that parsed, and the Markdown was read from
+  `<output_dir>/<dir name>.md`.

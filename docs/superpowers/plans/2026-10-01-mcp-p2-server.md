@@ -4123,4 +4123,47 @@ Claude-Session: https://claude.ai/code/session_0175gLq9uam6M5Z9yNNxM4Ba"
 
 ## Implementation notes / deviations
 
-(Filled in by the implementer: every place the code departed from this file, with the test that pins it.)
+Implemented 2026-10-02 (commits `4508373`..`36f87a5` on master). Contract-level changes are summarised in the index §4.1; each item below names the test that pins it.
+
+**Spike-driven changes**
+- `tests/mcp/conftest.py::mcp_client` and `tests/mcp/sdk_call.py` use `mcp.client.client.Client(streamable_http_client(url, http_client=httpx2.AsyncClient(headers=…)), mode=…)` (spike S3); `ClientSession` + `mcp.client._probe.negotiate_auto` do not exist in 2.2. The helper unwraps single-exception groups from the transport task group; `mcp_call()` lists tools before calling (the SDK client otherwise lists *after* the call to validate output, so the call was not the newest row).
+- Middleware (Task 14): `call_next` returns the wire **dict** (camelCase), not a model — filtering, error classification and sizes handle both. The SDK-internal `tools/list` that the 2026-07-28 era runs for every `tools/call` with arguments is filtered but not logged (`rctx.method != CallState.method`, spike S4). Legacy identity: `initialize` params (`clientInfo`, `protocolVersion`) + `CallRecorder.remember_identity/recall_identity` per token + User-Agent (spike S5; `test_call_rows_carry_client_identity`, `test_legacy_identity_is_remembered_per_token_and_user_agent`). The middleware touches `last_*` with `name/version` (the gate only on its fallback path).
+- Gate: authenticated `GET /mcp` → `405 Allow: POST` (spike S12; `test_get_stream_is_405_after_auth`).
+
+**Behaviour added or changed**
+- Tool results carry a compact text block instead of the SDK's indent-2 JSON copy: `read_document` → header comment + Markdown; `get_chunks` → Markdown per chunk; others compact JSON; search hits add `resource_link` blocks. Read/chunk budgets reserve 100 tokens (`test_text_block_is_markdown_under_a_header_not_json`).
+- `tools/list` sorted by name (`test_both_eras_list_tools`).
+- MagicDNS auto-detection for tailnet binds (`tailnet_names`, `test_tailnet_bind_advertises_magicdns_name`); endpoint URLs list IP + FQDN.
+- Origin rule: Origin must equal the request's Host (403 `forbidden_origin`); the SDK list admits `http://h:*` (Task 23 failure → `test_origin_must_match_host`).
+- `search_library`: score `max(-bm25, 1e-6)`; empty visible set → no hits (`test_orphaned_documents_are_not_listed_or_searched`); `flagged` filter ignores the maintenance flag `unassessed`; control characters / surrogates stripped and store errors → `search_unavailable` (`test_search_store_error_is_a_tool_error`).
+- `read_document`: chunk mode re-emits headings (chunk texts have none); units counted after asset-URI rewriting and `offset` is a position in the rewritten text (`test_image_heavy_page_stays_within_budget_after_uri_rewrite`); offset past the end → `invalid_arguments`; `heading_not_found.closest` = top 3 with cutoff 0.
+- `get_document_info` halves outline / flagged lists until the text fits the budget (`test_get_document_info_fits_the_budget_for_a_badly_flagged_book`).
+- Chunk ids `c0007` / `c0007m<max>` (`test_chunk_ids_are_uri_safe_and_resolve_per_chunk_size`); resource failures are `ResourceNotFoundError` (-32602); asset mimeType from the file name.
+- `convert_document`: `.webp` needs the `WEBP` fourcc (`test_check_magic_webp_needs_the_webp_fourcc`). `convert_path`: junction escape test added (`test_junction_pointing_outside_is_rejected`; the symlink test skips without privilege on this host).
+- Final review fixes: body method wins over a disagreeing `Mcp-Method` header (400 `method_mismatch`; `test_method_comes_from_the_body_not_a_spoofed_header`); linear body buffering (`test_body_is_buffered_linearly`); `?access_token=` refused and redacted (`test_access_token_query_parameter_is_rejected_too`); `replace_page_index` in one transaction (`test_replace_page_index_is_all_or_nothing`); docs caches evicted under a lock.
+
+**Plan test corrections (assertions kept, data/arithmetic fixed)**
+- `test_note_client_states`: the client was last seen at 1010, so idle is at 1010+301, not 1000+301.
+- `test_body_too_large_413`: 2 MiB is under `max_body_bytes` for 1 MB (2.33 MB) — body raised to 3 MiB.
+- `test_spa_catch_all_still_works`: `POST /mcp/` answers 405 (the SPA route is GET/HEAD); the test asserts no redirect.
+- `test_get_chunks_pagination_and_cache_key`: sections made of 5 paragraphs (the chunker never splits a paragraph).
+- `test_convert_document_limits`: disk factor `10**12` (100000 × 80 KB fit on this disk).
+- `test_token_copy_paste_variants_accepted`: the header now says `Mcp-Method: tools/list` like its body.
+- Plan-code xfails were on five protocol tests (not three); all removed in Task 22.
+
+**Phase S acceptance (2026-10-02, live server restarted on the final code: `uv run aidoc serve --host 100.106.118.45 --port 3333 --token …`)**
+- `uv run pytest -m "not slow" -q` → `697 passed, 1 skipped, 53 deselected`; `ruff check src tests` → only 3 pre-existing findings in untouched files (`make_fixtures.py`, `test_quality.py`, `test_repair.py`).
+- Startup log: `StreamableHTTP session manager started`, `Application startup complete`, no lifespan warnings; `GET /` → 200 text/html (SPA).
+- Real DB: `trigram 0` before the restart, `trigram 62` after the backfill — 62 of 65 documents; the other 3 have an empty `.md` (1 byte) and correctly get no rows.
+- `sdk_call.py --url http://ulove-arrangement.tail74077f.ts.net:3333/mcp --query shoulder --doc-id f52860b839234a56b0b2338b2585fa4f --pages 1-3 --pages 600-603 --pages 1190-1192`, read-only smoke PAT created through the Store (then revoked):
+
+  | step | auto (2026-07-28) text / structured tokens | legacy (2025-11-25) |
+  |---|---|---|
+  | search_library | 933 / 933 | 933 / 933 |
+  | get_document_info | 4,215 / 4,215 | 4,215 / 4,215 |
+  | read_document 1-3 | 130 / 174 | 130 / 174 |
+  | read_document 600-603 | 5,109 / 5,349 | 5,109 / 5,349 |
+  | read_document 1190-1192 | 4,209 / 4,550 | 4,209 / 4,550 |
+  | result | PASS (max 5,109 ≤ 8,000) | PASS |
+- `curl -X POST …/mcp -d '{}'` → `401` + `WWW-Authenticate: Bearer realm="doc4ai", error="invalid_token", error_description="…"` (no `resource_metadata`); `…/mcp?token=x` → `400 token_in_query`. After revoking the smoke PAT: `401 {"error": "invalid_token", "error_description": "This token was revoked"}`.
+- `mcp_calls` by status: `ok` 16, `auth_error` (missing_token 1, token_in_query 1, revoked 3); no `args_summary` holds base64.

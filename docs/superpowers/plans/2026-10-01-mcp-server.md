@@ -180,6 +180,19 @@ Jobs: `Job.origin` may now be `"mcp"`. `/mcp` itself is **not** under `/api` and
 
 **SSE kinds added:** `mcp.call` = `{id, ts, token_id, token_name, client_id, client_name, method, tool_name, status, error_code, http_status, duration_ms, response_tokens_est, job_id}`; `mcp.client` = `Client + {state: "new"|"active"|"idle"}`; `mcp.token` = `{id, name, prefix, action: "created"|"updated"|"revoked"|"rotated"}`. The raw token never appears in any event.
 
+### 4.1 Amendments made while implementing Parts F and S (binding for Part A)
+
+Recorded by the F/S implementer (2026-10-02); details and the tests that pin them are in the "Implementation notes / deviations" sections of the F and S phase files.
+
+- **`ChunkOut.chunk_id`** (tool `get_chunks`, resource `doc4ai://chunks/{doc_id}/{chunk_id}`) is `c0007` for the default 800-token chunking and `c0007m<max_tokens>` otherwise (helpers `aidoc.mcp.docs.chunk_uri_id()` / `chunk_index()`). `aidoc chunk` ids (`<stem>#0007`) cannot be used: `#` ends a URI.
+- **`/mcp` gate answers** (all `{"error", "error_description"}` bodies, never enveloped): `401 invalid_token` (+ `WWW-Authenticate`), `400 token_in_query`, `404 mcp_disabled`, `413 payload_too_large`, `429 rate_limited` (+ `Retry-After`), **new:** `403 forbidden_origin` when an `Origin` header is present and is not the request's own `Host` (same-origin rule, logged `protocol_error`/`http_403`), **new:** `405 method_not_allowed` (`Allow: POST`) for an authenticated `GET /mcp` (stateless server: no standalone stream; logged `http_405`).
+- **`tools/list`** is sorted by tool name after the scope filter.
+- **Tool result text**: every result carries `structuredContent` plus one compact text block — `read_document`: `<!-- doc4ai read_document: doc_id=…; pages a-b; truncated=…; next=… -->` + the Markdown; `get_chunks`: one `<!-- chunk … -->` header per chunk + text; everything else: compact JSON. Search hits also come as `resource_link` blocks. Read/chunk budgets reserve 100 tokens for these headers (`registry.TEXT_RESERVE_TOKENS`).
+- **`endpoint_urls(cfg, bind_host, port)`** also lists the MagicDNS FQDN when `bind_host` is a tailnet IP (100.64.0.0/10), found with `tailscale status --json` (3 s timeout) or a `*.ts.net` reverse lookup (`server.tailnet_names()`); FQDN and short name are allowed Hosts automatically. Configured `mcp.allowed_hosts` are listed for non-loopback binds. `/api/mcp/status.endpoint_urls` should use this as is.
+- **`CallRecorder`** gains `remember_identity(token_id, user_agent, name, version)` / `recall_identity(token_id, user_agent)` (1 h): 2025-era stateless clients send `clientInfo` only on `initialize`; later messages of the same token + User-Agent are attributed to it. The middleware (not the gate) touches `api_tokens.last_*` so `last_client` is `name/version` (else the User-Agent).
+- **`Store.active_mcp_jobs(token_id)`** (Task 20) is part of the Store surface.
+- **Test helpers** (`tests/mcp/conftest.py`): `mcp_client()` is built on `mcp.client.client.Client(streamable_http_client(url, http_client=httpx2.AsyncClient(headers=…)), mode=…, cache=None)` (spike S3) and unwraps single-exception groups; `mcp_call()` lists tools before calling (otherwise the SDK client lists *after* the call to validate output, and the call is not the newest `mcp_calls` row). `tests/mcp/sdk_call.py` steps carry `tokens_structured` next to `tokens_text`.
+
 ## 5. Spec ambiguities resolved in this plan (binding)
 
 | # | Ambiguity | Resolution |

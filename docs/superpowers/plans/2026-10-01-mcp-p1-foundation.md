@@ -1860,3 +1860,14 @@ Claude-Session: https://claude.ai/code/session_0175gLq9uam6M5Z9yNNxM4Ba"
 - [ ] `docs/superpowers/spikes/2026-10-mcp-sdk.md` has S1–S14 each with Finding / Decision / Affects (S13 may say "deferred to Task 35" if Claude Code was not available).
 - [ ] `uv run python -c "from aidoc.store import Store; s=Store('data/aidoc.db'); print(s.page_index_tokenizer(), len(s.page_index_doc_ids()))"` on the real DB prints `trigram 0` **before** the first server start, and after `uv run aidoc serve` has run once (then Ctrl+C) prints `trigram 65` (all documents indexed by the backfill; number = current document count).
 - [ ] `aidoc.toml` committed with `[mcp]`; `GET /api/settings` shows it.
+
+## Implementation notes / deviations
+
+Implemented 2026-10-02 (commits `95a5b37`..`4973744` on master).
+
+- **Task 1 — installing the SDK.** The user's running server holds `.venv/Scripts/aidoc.exe`, so `uv add` could not reinstall the editable project. `mcp>=2.2,<2.3` was added to `pyproject.toml` by hand, then `uv lock` + `uv sync --no-install-project --inexact`; tests ran with `uv run --no-sync` until the server restart. The spike found three things the plan did not anticipate (recorded as rulings in the spike file and applied in Part S): S4 the modern era runs an internal `tools/list` through the middleware for every `tools/call` with arguments; S5 legacy stateless clients carry `clientInfo` only on `initialize`; S12 a stateless `GET /mcp` opens an SSE stream that never ends. S13 (Claude Code 401 behaviour) was run: plain error, no OAuth discovery.
+- **Task 3.** `load_or_create_secret` opens the file with `O_BINARY` as well (Windows text-mode safety). No behaviour change elsewhere.
+- **Task 4.** `tests/api/test_app_basics.py` asserted `schema_version == "2"`; moved to `"4"` as the plan instructs.
+- **Task 6.** The pipeline hook is a small helper `pipeline._index_pages()` that logs through `PipelineContext.log` (the plan left the log callable to be checked).
+- **Tasks 2/9/10.** Lint-only adjustments to the plan's test code (import order, `from aidoc import chunk`, `endswith((…))`); assertions unchanged.
+- **Phase acceptance — real DB.** The `page_index_tokenizer()` check on `data/aidoc.db` was run only around the final server restart (opening the DB with the new code migrates it to v4 while the old server still runs). Results are in the Part S deviations section.

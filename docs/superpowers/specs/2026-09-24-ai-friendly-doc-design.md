@@ -122,9 +122,9 @@ class Engine(Protocol):
 
 | Engine | runner 呼叫 | 頁界 | 圖片 | 表格／公式 |
 |---|---|---|---|---|
-| MarkItDown 0.1.8 | `MarkItDown().convert(path).markdown`（`.text_content` 已標記淘汰） | 只有 pptx 有 `<!-- Slide number: N -->`；PDF／docx 無頁界 | 不寫磁碟，runner 自行抽圖（見第 2 節） | 表格為 GFM；無公式 |
+| MarkItDown 0.1.8 | `MarkItDown().convert(path).markdown`（`.text_content` 已標記淘汰） | pptx 有 `<!-- Slide number: N -->`；**PDF 逐頁擷取**（MarkItDown 自己的逐頁函式，接回後與 `convert()` 逐字相同才採用，否則無頁界 → `page_map_incomplete` → `low`；2026-10-01 修訂 §6.3）；docx 無頁界 | 不寫磁碟，runner 自行抽圖（見第 2 節） | 表格為 GFM；無公式 |
 | Docling 2.x（2.130） | `DocumentConverter(format_options=...).convert(path)` → `DoclingDocument`；`convert()` 另有 `page_range=(start, end)`（1 起算、含尾）可用 | 每個元素的 `prov[].page_no` 有頁碼。`export_to_markdown(page_break_placeholder=...)` 只插固定字串且連續空白頁會漏（issue #2623），**不用**；runner 改為逐頁 `export_to_markdown(page_no=n)` 串接並自行加 `<!-- page: n -->`，跨頁元素以首頁為準（實作時以 fixture 驗證不重複） | `generate_picture_images=True`、`images_scale=2.0`，`save_as_markdown(image_mode=ImageRefMode.REFERENCED)` 寫到 `<stem>_artifacts/`，runner 搬到 `assets/` | GFM 表格（`tabulate github` 格式）；`do_formula_enrichment=True` 時公式為 `$…$`／`$$…$$` |
-| MinerU 4.x | `mineru.parser.parse(path, tier=..., ocr_mode="auto", page_range="")` → `ParseResult.save(writer)` 產出 `markdown.md`、`middle_json.json`、`structured_content.json`、`images/` | `markdown.md` **沒有頁界標記**；頁界由 `middle_json.json` 的 `pages[].page_idx`（0 起算）或 content list V2（逐頁分組）對照 markdown 區塊順序推回；對不上時該段視為無頁界 | `images/page_{idx}_{type}_{n}.{ext}` | 表格為 **HTML**（normalize 轉 GFM，轉不動的保留 HTML）；公式 `$…$`／`$$…$$` |
+| MinerU 4.x | `mineru.parser.parse(path, tier=..., ocr_mode="auto", page_range="")` → `ParseResult.save(writer)` 產出 `markdown.md`、`middle_json.json`、`structured_content.json`、`images/` | `markdown.md` 沒有頁界標記；**由 `middle_json.json` 以 MinerU 官方 render plan 逐頁渲染，逐頁加標記（空白頁也加）**，逐頁結果串接後須與 `markdown.md` 逐位元組相同，否則改用公開 API 單頁渲染（2026-10-01 修訂 §6.1；不再以文字搜尋推回頁界） | `images/page_{idx}_{type}_{n}.{ext}` | 表格為 **HTML**（normalize 轉 GFM，轉不動的保留 HTML）；公式 `$…$`／`$$…$$` |
 
 MinerU 4.x 也能直接吃圖片（png/jpg/webp/tiff…，內部轉成 PDF）與 Office 檔，但本專案只在 router 指定的類型上用它。
 
@@ -167,7 +167,9 @@ MinerU 4.x 也能直接吃圖片（png/jpg/webp/tiff…，內部轉成 PDF）與
 - probe 的 `has_table_lines` 為真，但輸出中沒有任何表格（GFM 表格或 HTML `<table>` 都算；MinerU 的 md 以 HTML 輸出表格，normalize 之後才轉 GFM）
 
 分數 `score ∈ [0,1]` 由上述指標加權計算，`level` 為 `ok` / `low`。
-全部工具都失敗時保留分數最高的結果，標記 `level: "low"`。門檻為初始值，依 fixture 實測調整（尤其 `has_table_lines`：表單底線、裝飾框線都會被偵測成格線，第三條規則誤判率可能偏高）。
+全部工具都失敗時保留分數最高的結果，標記 `level: "low"`。
+
+**2026-10-01 修訂（逐頁品質）**：品質改為逐頁——頁碼完整度（`page_map_incomplete`）、對齊抽查（`page_map_misaligned`）、文字層損壞頁（`broken_text_layer`／`garbage`，逐頁 OCR 修復後接回）都列入判定，並新增等級 `warn`（內容可用但有未修復的問題頁；不觸發備援）。規則見 `docs/superpowers/specs/2026-10-01-per-page-quality-and-page-map.md` 第 5、7、8 節。門檻為初始值，依 fixture 實測調整（尤其 `has_table_lines`：表單底線、裝飾框線都會被偵測成格線，第三條規則誤判率可能偏高）。
 
 ## 5. 輸出格式
 
@@ -203,6 +205,8 @@ out/<檔名>/
   "aidoc_version": "0.1.0"
 }
 ```
+
+2026-10-01 修訂：`quality` 另含 `page_check`、`page_map`（PDF：`expected`／`found`／`coverage`／`missing`／`method`／`alignment`）、`pages`（被標記頁，含 `repaired_by`）、`pages_flagged`、`pages_unrepaired`；`probe` 另含 `broken_fonts`、`broken_font_pages_count`。欄位定義見 `docs/superpowers/specs/2026-10-01-per-page-quality-and-page-map.md` 第 5.4 節。
 
 ### 批次（CLI）
 
@@ -265,6 +269,8 @@ out/<檔名>/
 4. **Document 檢視**：左右兩欄——左側原始檔預覽（PDF 用 pdf.js、圖片直接顯示；原始檔已移除時顯示提示）；右側三分頁：Markdown 渲染（KaTeX、GFM 表格）、原始碼、JSON。**捲動時依 `<!-- page: N -->` 左右同步**（react-markdown 預設會丟掉 HTML 註解，需自訂 remark plugin 把 `<!-- page: N -->` 轉成帶 `data-page` 的錨點元素）。右上：複製 Markdown、下載 zip、送去切段。
 5. **Chunks**：選文件、設定 max tokens，預覽切段結果（標題路徑、頁碼範圍），下載 jsonl。
 6. **Settings**：三個工具的安裝狀態卡片（一鍵安裝、安裝 log）、GPU 資訊、預設語言、輸出目錄。
+
+2026-10-01 修訂：Library 顯示「頁碼不完整」「N 頁有問題」徽章、橫幅與一鍵重新轉換（`POST /api/documents/reconvert`）；Document 檢視加「跳至頁」、頁碼不完整橫幅與逐頁提示；API 新增 `flags`／`page_summary`、`?flag=`、rescan 重新評估。見 `docs/superpowers/specs/2026-10-01-per-page-quality-and-page-map.md` 第 9 節。
 
 ## 7. Claude Code skill
 
@@ -393,6 +399,7 @@ server（或 CLI batch）啟動時：
   - 正式輸出目錄已存在（`--force`）且其中一個檔案被另一個 handle 開著 → 三步 rename 在退避重試後成功或標 `transient`，`.trash/` 不殘留（Windows 專用情境，CI 在 Windows runner 跑）
 - **API 測試**：FastAPI TestClient 覆蓋各端點與 SSE 事件順序。
 - **前端**：Vitest 測關鍵元件邏輯（上傳續傳、SSE 狀態合併）；Playwright 跑一條端到端流程（上傳 → 轉換 → 預覽）。
+- **真實樣本關卡與同步準確度**（2026-10-01 修訂）：`tests/fixtures/manual_samples.json` 列出真實樣本（不進版控），`AIDOC_REQUIRE_MANUAL=1` 時缺樣本或缺引擎環境即失敗；`web/e2e/sync.spec.ts`（假引擎 45 頁）與 `sync-real.spec.ts`（真實樣本）驗證左右同步。見 `docs/superpowers/specs/2026-10-01-per-page-quality-and-page-map.md` 第 10 節。
 - **整合測試**（`@pytest.mark.slow`，需要 GPU）：`tests/fixtures/` 每類一個小樣本——docx、pptx、xlsx、電子 PDF、繁中掃描 PDF、中英混排掃描 PDF、公式 PDF、png，以及一份 > 40 頁的 PDF 驗證分段。斷言：引擎選擇正確、品質為 `ok`、產出檔案齊全。
 
 ## 11. 不在範圍內（第一版）

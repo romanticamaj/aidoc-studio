@@ -454,3 +454,32 @@ reconvert 的來源：`source_path` 是存在的絕對路徑且 sha256 相符 �
 - 主 spec §6：Library／Document 依第 9.3、9.4 節；API 依第 9.2 節。
 - 主 spec §10：加入第 10 節真實樣本關卡與同步 e2e。
 - plan index：`models.QualityResult.level` 加 `"warn"`、`DocStatus.warn`、`ProbeResult.broken_fonts`／`broken_font_pages`、`RawResult.page_map_method`、runner `result.json` 的 `page_map_method`、`engine_opts` 的 `backend`／`ocr_mode`、§8 API 新增列、Store 新增方法、§2 新增 A19（`warn` 等級語意）。詳細文字見實作計畫的「Index amendments」，由計畫 Task 0 寫入 index。
+
+## 15. 驗收紀錄（2026-10-01，Windows 開發機，RTX 5070 Ti）
+
+實作偏差與門檻調整的證據見實作計畫末節「Implementation notes / deviations」。重點：逐頁修復在「沒有備援引擎」時（強制引擎或最後一個引擎）一律執行；`has_table_lines` 改為需要格線；段內快速對齊檢查改為整段逐頁、門檻 0.50（只攔重大錯位），整份文件仍為 30 頁抽查、0.90；`page_map_misaligned` 另需至少 2 頁錯位。
+
+### 既有資料修復（live library，`POST /api/documents/reconvert`）
+
+| 文件 | 修復前（rescan `?all=1`） | 修復後 | 頁碼標記 | 對齊（30 頁抽查） | 對齊（全頁） | 耗時 |
+|---|---|---|---|---|---|---|
+| A System of Orthopaedic Medicine, 3rd Edition（1192 頁） | `low`：`page_map_incomplete` + `page_map_misaligned`，30/1192 標記，未修復 1162 | `ok` 1.000，MinerU（`mineru_render_plan`），flags 無 | 1192/1192 | 29/29 = 1.000 | 1122/1157 = 0.970 | 739 s |
+| Head First Android Development（532 頁） | `warn`：55 頁 `broken_text_layer` 未修復 | `ok` 0.996，Docling；`pages_flagged` 55、`pages_unrepaired` 0（50 頁 `docling:pypdfium_full_page_ocr`、5 頁 `mineru:ocr`）；封面含「Wouldn't it be dreamy」 | 532/532 | 20/20 = 1.000（排除 339 頁壞字型頁） | 130/134 = 0.970 | 3766 s |
+| 3 份 1 頁空白文件（blank.pdf 系列） | `low`：`page_map_incomplete` 0/1 | `low`（`chars_per_page`，本來就是空白），1/1 標記，flags 無 | 1/1 | — | — | — |
+| `text.pdf`（MarkItDown，上傳檔） | `low`：`page_map_incomplete` 0/3 | **未修復**：`410 source_missing`（工作副本已過期、無本機原始檔），需重新上傳 | — | — | — | — |
+
+rescan 後 `page_map_incomplete` 5 份、`page_quality` 6 份（含上表全部）；修復後 library 只剩 `text.pdf` 帶 flag（原因：來源已不存在）。其他 PDF 重新評估皆 `ok`（Neo4j 266/266、Agentic-CN 390/390、long315 315/315）。
+
+### 測試
+
+| 項目 | 結果 |
+|---|---|
+| `uv run pytest -m "not slow" -q` | 437 passed |
+| `AIDOC_REQUIRE_MANUAL=1 uv run pytest -m slow -q` | 53 passed，0 skipped（13 min） |
+| `pnpm --dir web test` | 106 passed（28 files） |
+| `pnpm --dir web build` | ok |
+| `pnpm --dir web e2e` | 6 passed（含 `sync.spec.ts`：20 次跳頁 + 10 次左捲 + 10 次右捲，40/40） |
+| `pnpm --dir web e2e:real`（`ortho_p1-80.pdf`，MinerU，live server） | 位置 20/20、內容 19/19 |
+| 真實樣本關卡（`test_page_quality_real.py`） | ortho p1-80 29/29、p300-340 30/30、blanks 3/3、paged_furniture 7/7 對齊；封面與 mix 由 `docling:pypdfium_full_page_ocr` 修復、`pages_unrepaired` 0；改名一個樣本 → 測試 **fail**（非 skip） |
+| T-001 偵測（既有 Head First 輸出） | 55/55 命中、誤報 0；其他輸出 0 命中 |
+| 成本 | 1192 頁全頁對齊抽查 9.8 s（文字層抽取為主）；30 頁抽查約 5 s |

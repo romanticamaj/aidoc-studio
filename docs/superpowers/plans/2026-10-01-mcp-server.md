@@ -193,6 +193,19 @@ Recorded by the F/S implementer (2026-10-02); details and the tests that pin the
 - **`Store.active_mcp_jobs(token_id)`** (Task 20) is part of the Store surface.
 - **Test helpers** (`tests/mcp/conftest.py`): `mcp_client()` is built on `mcp.client.client.Client(streamable_http_client(url, http_client=httpx2.AsyncClient(headers=…)), mode=…, cache=None)` (spike S3) and unwraps single-exception groups; `mcp_call()` lists tools before calling (otherwise the SDK client lists *after* the call to validate output, and the call is not the newest `mcp_calls` row). `tests/mcp/sdk_call.py` steps carry `tokens_structured` next to `tokens_text`.
 
+### 4.2 Amendments made while implementing Part A (and the deferred Part S findings)
+
+Recorded 2026-10-02; details and pinning tests in the "Implementation notes / deviations" section of the A phase file.
+
+- **Web route of the MCP page is `/mcp-admin`** (`MCP_PAGE` in `web/src/components/layout/nav.ts`): `/mcp` is the endpoint, so a page load there got its 401.
+- **`mcp.call` event** adds `token_prefix_seen`, `ip`, `protocol_version`, `response_bytes`, `resource_uri` (display fields only).
+- **`GET /api/mcp/status`** adds `config_warnings: [str]`.
+- **Schema v4 addition:** table `mcp_jobs(job_id PK, token_id, created_at)`; Store adds `create_mcp_job(opts, *, token_id, limit)`, `update_mcp_call(id, **fields)`, `get_mcp_call(id)`; `active_mcp_jobs` counts `mcp_jobs` plus the D8 attribution.
+- **`/mcp` gate:** `429 too_many_auth_failures` + `Retry-After` per client IP after 10 failed authentications in 60 s (60 s cool-down, extended while failures continue); one aggregate row `rate_limited / auth_failures` per episode.
+- **Resources** need `doc4ai:read` (JSON-RPC `-32003`, `data.code = forbidden_scope`).
+- **Config:** `aidoc.config.mcp_list_problem()` is the single rule set for `[mcp]` lists (load + settings API); `ConfigError` refuses to start on unsafe `local_path_roots`; `AidocConfig.warnings`. `tokens.SecretKeyError` for a damaged `data/secret.key`. `aidoc serve` exit codes 5 (secret) and 6 (config).
+- `documents.start_reconvert(..., create_job=None)`; `tools_convert.reserve_job()`; web `api.patch`.
+
 ## 5. Spec ambiguities resolved in this plan (binding)
 
 | # | Ambiguity | Resolution |
